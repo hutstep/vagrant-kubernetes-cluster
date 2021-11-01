@@ -6,11 +6,9 @@ Vagrant.configure("2") do |config|
     vb.cpus = 2
   end
   config.vm.provision "shell", path: "provision_upgrade.sh"
-  config.vm.provision "shell", path: "provision_pip_deps.sh"
+  config.vm.provision "shell", path: "provision_ansible.sh"
   config.vm.provision "ansible_local" do |ansible|
     ansible.playbook = "playbook.createcluster.yml"
-    ansible.install_mode = "pip"
-    ansible.pip_install_cmd = "curl https://bootstrap.pypa.io/get-pip.py | sudo python3"
     ansible.groups = {
       "cp"       => ["controlplane"],
       "workers"  => ["worker-1", "worker-2"],
