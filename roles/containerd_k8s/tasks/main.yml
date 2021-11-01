@@ -6,13 +6,12 @@
     br_netfilter
     EOF
 
-- name: Load overlay module
+- name: Load overlay and br_netfilter modules
   modprobe:
-    name: overlay
-
-- name: Load br_netfilter module
-  modprobe:
-    name: br_netfilter
+    name: "{{ item }}"
+  with_items:
+  - overlay
+  - br_netfilter
 
 - name: Configure iptables
   shell: |
@@ -59,7 +58,7 @@
     mkdir -p /etc/containerd
     containerd config default | tee /etc/containerd/config.toml
 
-- name: Using the systemd cgroup driver for containerd
+- name: Set systemd cgroup driver for containerd
   lineinfile:
     path: /etc/containerd/config.toml
     insertafter: '\[plugins\."io\.containerd\.grpc\.v1\.cri"\.containerd\.runtimes\.runc\.options\]'
@@ -91,40 +90,10 @@
 
 - name: Pin kubelet, kubeadm and kubectl versions
   dpkg_selections:
-    name: '{{ item }}'
+    name: "{{ item }}"
     selection: hold
   with_items:
-    - kubelet
-    - kubeadm
-    - kubectl
+  - kubelet
+  - kubeadm
+  - kubectl
 
-- name: Init control plane node
-  shell: "kubeadm init --apiserver-advertise-address={{ ip }} --pod-network-cidr=192.168.0.0/16 | tee /vagrant/k8s_controlplane"
-  vars:
-  - ip: "{{ ansible_eth1['ipv4']['address'] }}"
-  register: kubeadm_init_output
-
-- name: Set fact for kubeadm join command
-  set_fact:
-    kubeadm_join_command: '{{ kubeadm_init_output.stdout_lines[-2][:-2] }}{{ kubeadm_init_output.stdout_lines[-1] }}'
-
-- name: Create .kube directory
-  become: no
-  file:
-    path: /home/vagrant/.kube
-    state: directory
-    owner: vagrant
-    group: vagrant
-  register: kube_dir
-
-- name: Copy kube config
-  copy:
-    src: /etc/kubernetes/admin.conf
-    dest: "{{ kube_dir.path }}/config"
-    remote_src: yes
-    owner: vagrant
-    group: vagrant
-
-- name: Install Calico CNI
-  become: no
-  shell: "kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml"

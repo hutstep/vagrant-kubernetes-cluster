@@ -1,0 +1,31 @@
+---
+- name: Init control plane node
+  shell: "kubeadm init --apiserver-advertise-address={{ ip }} --pod-network-cidr=192.168.0.0/16 | tee /vagrant/k8s_controlplane"
+  vars:
+  - ip: "{{ ansible_eth1['ipv4']['address'] }}"
+  register: kubeadm_init_output
+
+- name: Set fact for kubeadm join command
+  set_fact:
+    kubeadm_join_command: '{{ kubeadm_init_output.stdout_lines[-2][:-2] }}{{ kubeadm_init_output.stdout_lines[-1] }}'
+
+- name: Create .kube directory
+  become: no
+  file:
+    path: /home/vagrant/.kube
+    state: directory
+    owner: vagrant
+    group: vagrant
+  register: kube_dir
+
+- name: Copy kube config
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "{{ kube_dir.path }}/config"
+    remote_src: yes
+    owner: vagrant
+    group: vagrant
+
+- name: Install Calico CNI
+  become: no
+  shell: "kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml"
