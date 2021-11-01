@@ -1,0 +1,130 @@
+---
+- name: Configure modules
+  shell: |
+    cat <<EOF | tee /etc/modules-load.d/containerd.conf
+    overlay
+    br_netfilter
+    EOF
+
+- name: Load overlay module
+  modprobe:
+    name: overlay
+
+- name: Load br_netfilter module
+  modprobe:
+    name: br_netfilter
+
+- name: Configure iptables
+  shell: |
+    cat <<EOF | tee /etc/sysctl.d/99-kubernetes-cri.conf
+    net.bridge.bridge-nf-call-iptables  = 1
+    net.ipv4.ip_forward                 = 1
+    net.bridge.bridge-nf-call-ip6tables = 1
+    EOF
+    sysctl --system
+
+- name: Install packages
+  apt:
+    pkg:
+    - ca-certificates
+    - curl
+    - gnupg
+    - lsb-release
+    - apt-transport-https
+
+- name: Add Docker signing key
+  apt_key:
+    url: https://download.docker.com/linux/debian/gpg
+    keyring: /usr/share/keyrings/docker-archive-keyring.gpg
+
+- name: "Add Docker repository to APT sources list"
+  apt_repository:
+    repo: "deb [arch={{ architecture_map[ansible_architecture] }} signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+    filename: docker
+  vars:
+    architecture_map:
+      "x86_64": "amd64"
+      "aarch64": "arm64"
+      "aarch": "arm64"
+      "armhf": "armhf"
+      "armv7l": "armhf"
+
+- name: Install containerd.io package
+  apt:
+    name: containerd.io
+    update_cache: yes
+
+- name: Create containerd config file
+  shell: |
+    mkdir -p /etc/containerd
+    containerd config default | tee /etc/containerd/config.toml
+
+- name: Using the systemd cgroup driver for containerd
+  lineinfile:
+    path: /etc/containerd/config.toml
+    insertafter: '\[plugins\."io\.containerd\.grpc\.v1\.cri"\.containerd\.runtimes\.runc\.options\]'
+    line: "            SystemdCgroup = true"
+
+- name: Restart service containerd
+  systemd:
+    state: restarted
+    daemon_reload: yes
+    name: containerd
+
+- name: Add Google Cloud signing key
+  apt_key:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    keyring: /usr/share/keyrings/kubernetes-archive-keyring.gpg
+
+- name: "Add Kubernetes repository to APT sources list"
+  apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main"
+    filename: kubernetes
+
+- name: Install Kubernetes packages
+  apt:
+    pkg:
+    - kubelet
+    - kubeadm
+    - kubectl
+    update_cache: yes
+
+- name: Pin kubelet, kubeadm and kubectl versions
+  dpkg_selections:
+    name: '{{ item }}'
+    selection: hold
+  with_items:
+    - kubelet
+    - kubeadm
+    - kubectl
+
+- name: Init control plane node
+  shell: "kubeadm init --apiserver-advertise-address={{ ip }} --pod-network-cidr=192.168.0.0/16 | tee /vagrant/k8s_controlplane"
+  vars:
+  - ip: "{{ ansible_eth1['ipv4']['address'] }}"
+  register: kubeadm_init_output
+
+- name: Set fact for kubeadm join command
+  set_fact:
+    kubeadm_join_command: '{{ kubeadm_init_output.stdout_lines[-2][:-2] }}{{ kubeadm_init_output.stdout_lines[-1] }}'
+
+- name: Create .kube directory
+  become: no
+  file:
+    path: /home/vagrant/.kube
+    state: directory
+    owner: vagrant
+    group: vagrant
+  register: kube_dir
+
+- name: Copy kube config
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "{{ kube_dir.path }}/config"
+    remote_src: yes
+    owner: vagrant
+    group: vagrant
+
+- name: Install Calico CNI
+  become: no
+  shell: "kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml"
