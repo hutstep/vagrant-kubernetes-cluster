@@ -26,6 +26,6 @@
     owner: vagrant
     group: vagrant
 
-- name: Install Calico CNI
+- name: Install Flannel CNI
   become: no
-  shell: "kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml"
+  shell: "kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml"
