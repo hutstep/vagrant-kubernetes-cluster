@@ -1,3 +1,4 @@
 .vagrant/
 k8s_controlplane
 vagrant_ansible_local_inventory
+kubeadm_join_command

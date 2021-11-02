@@ -1,0 +1,3 @@
+---
+- name: Join k8s cluster
+  shell: "{{ lookup('file', '/vagrant/kubeadm_join_command') }}"

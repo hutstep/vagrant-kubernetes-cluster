@@ -1,13 +1,12 @@
 ---
 - name: Init control plane node
-  shell: "kubeadm init --apiserver-advertise-address={{ ip }} --pod-network-cidr=192.168.0.0/16 | tee /vagrant/k8s_controlplane"
+  shell: >
+    kubeadm init --apiserver-advertise-address={{ ip }} --pod-network-cidr=10.244.0.0/16 \
+    | tee /vagrant/k8s_controlplane \
+    | tail -n 2 \
+    | tee /vagrant/kubeadm_join_command
   vars:
   - ip: "{{ ansible_eth1['ipv4']['address'] }}"
-  register: kubeadm_init_output
-
-- name: Set fact for kubeadm join command
-  set_fact:
-    kubeadm_join_command: '{{ kubeadm_init_output.stdout_lines[-2][:-2] }}{{ kubeadm_init_output.stdout_lines[-1] }}'
 
 - name: Create .kube directory
   become: no

@@ -8,3 +8,8 @@
   become: yes
   roles:
     - controlplane_init
+
+- hosts: workers
+  become: yes
+  roles:
+    - worker_join
