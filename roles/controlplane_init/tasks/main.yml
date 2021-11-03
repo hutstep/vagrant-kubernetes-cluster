@@ -1,7 +1,7 @@
 ---
 - name: Init control plane node
   shell: >
-    kubeadm init --apiserver-advertise-address={{ ip }} --pod-network-cidr=10.244.0.0/16 \
+    kubeadm init --apiserver-advertise-address={{ ip }} --pod-network-cidr=192.168.0.0/16 \
     | tee /vagrant/k8s_controlplane \
     | tail -n 2 \
     | tee /vagrant/kubeadm_join_command
@@ -25,6 +25,6 @@
     owner: vagrant
     group: vagrant
 
-- name: Install Flannel CNI
+- name: Install Calico CNI
   become: no
-  shell: "kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml"
+  shell: "kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml"
