@@ -1,3 +1,3 @@
 ---
 - name: Join k8s cluster
-  shell: "{{ lookup('file', '/vagrant/kubeadm_join_command') }}"
+  shell: "{{ lookup('file', '/vagrant/kubeadm_join_command') }} | tee /vagrant/k8s_{{ ansible_hostname }}"
