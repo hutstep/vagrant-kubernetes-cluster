@@ -30,6 +30,7 @@
     - gnupg
     - lsb-release
     - apt-transport-https
+    - vim
 
 - name: Add Docker signing key
   apt_key:
@@ -97,3 +98,11 @@
   - kubeadm
   - kubectl
 
+- name: Kubectl autocomplete & k alias
+  become: no
+  shell: |
+    cat <<EOF | tee -a ~/.bashrc
+    source <(kubectl completion bash)
+    alias k=kubectl
+    complete -F __start_kubectl k
+    EOF
